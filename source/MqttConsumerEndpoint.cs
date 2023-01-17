@@ -23,10 +23,8 @@ namespace CloudNative.CloudEvents.Endpoints
         private CloudEventFormatter _jsonFormatter = new JsonEventFormatter();
         private CloudEventFormatter _protoFormatter = new ProtobufEventFormatter();
         private CloudEventFormatter _avroFormatter = new global::CloudNative.CloudEvents.Avro.AvroEventFormatter();
-        private readonly Func<CloudEvent, object>? _deserializeCloudEventData;
         private IEndpointCredential _credential;
         private IMqttClientOptions? _options;
-        private ILogger _logger;
         private string _topic;
         private byte _qos;
         private List<Uri> _endpoints;
@@ -34,12 +32,10 @@ namespace CloudNative.CloudEvents.Endpoints
         /// <summary>
         /// Creates a new MQTT consumer endpoint.
         /// </summary>
-        public MqttConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints, Func<CloudEvent, object>? deserializeCloudEventData)
+        public MqttConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints):base(logger)
         {
-            _logger = logger;
             _credential = credential;
             _endpoints = endpoints;
-            _deserializeCloudEventData = deserializeCloudEventData;
             _client = new MqttFactory().CreateMqttClient();
             if ( options.TryGetValue("topic", out var topic))
             {
@@ -79,7 +75,7 @@ namespace CloudNative.CloudEvents.Endpoints
             await _client.ConnectAsync(_options);
             _client.UseApplicationMessageReceivedHandler(OnMessageReceived);
             await _client.SubscribeAsync(_topic, (MqttQualityOfServiceLevel)_qos);
-            _logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Started MQTT consumer endpoint");
+            Logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Started MQTT consumer endpoint");
         }
 
         /// <summary>
@@ -88,7 +84,7 @@ namespace CloudNative.CloudEvents.Endpoints
         public override async Task StopAsync()
         {
             await _client.DisconnectAsync();
-            _logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Stopped MQTT consumer endpoint");
+            Logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Stopped MQTT consumer endpoint");
         }
         
         /// <summary>
@@ -100,16 +96,11 @@ namespace CloudNative.CloudEvents.Endpoints
             try
             {
                 var cloudEvent = args.ApplicationMessage.ToCloudEvent(_jsonFormatter);
-                object? data = cloudEvent.Data;
-                if (_deserializeCloudEventData != null)
-                {
-                    data = _deserializeCloudEventData(cloudEvent);
-                }
-                DeliverEvent(cloudEvent, data);
+                DeliverEvent(cloudEvent);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ERROR_LOG_TEMPLATE, ex.Message);
+                Logger.LogError(ERROR_LOG_TEMPLATE, ex.Message);
             }
         }
     }

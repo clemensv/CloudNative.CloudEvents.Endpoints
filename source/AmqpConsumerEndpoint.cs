@@ -21,9 +21,7 @@ namespace CloudNative.CloudEvents.Endpoints
         private CloudEventFormatter _jsonFormatter = new JsonEventFormatter();
         private CloudEventFormatter _protoFormatter = new ProtobufEventFormatter();
         private CloudEventFormatter _avroFormatter = new global::CloudNative.CloudEvents.Avro.AvroEventFormatter();
-        private readonly Func<CloudEvent, object>? _deserializeCloudEventData;
         private string? _node;
-        private ILogger _logger;
         private IEndpointCredential _credential;
         private List<Uri> _endpoints;
 
@@ -35,12 +33,10 @@ namespace CloudNative.CloudEvents.Endpoints
         /// <param name="options">The options to use for this endpoint.</param>
         /// <param name="endpoints">The endpoints to use for this endpoint.</param>
         /// <param name="deserializeCloudEventData">The function to use to deserialize the CloudEvent data.</param>
-        public AmqpConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints, Func<CloudEvent, object>? deserializeCloudEventData)
+        public AmqpConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints):base(logger)
         {
-            _logger = logger;
             _credential = credential;
             _endpoints = endpoints;
-            _deserializeCloudEventData = deserializeCloudEventData;
             if ( options.TryGetValue("node", out var node) )
             {
                 _node = node;
@@ -71,11 +67,11 @@ namespace CloudNative.CloudEvents.Endpoints
             try
             {
                 _connection = await factory.CreateAsync(address);
-                _logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Connection to endpoint " + endpoint + " created");
+                Logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Connection to endpoint " + endpoint + " created");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ERROR_LOG_TEMPLATE, "Error creating connection to endpoint " + endpoint + ": " + ex.Message);
+                Logger.LogError(ERROR_LOG_TEMPLATE, "Error creating connection to endpoint " + endpoint + ": " + ex.Message);
                 throw;
             }
             
@@ -96,11 +92,11 @@ namespace CloudNative.CloudEvents.Endpoints
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ERROR_LOG_TEMPLATE, "Error sending token to endpoint " + endpoint + ": " + ex.Message);
+                    Logger.LogError(ERROR_LOG_TEMPLATE, "Error sending token to endpoint " + endpoint + ": " + ex.Message);
                     throw;
                 }
             }
-            _logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Starting AMQP consumer endpoint");
+            Logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Starting AMQP consumer endpoint");
             _receiverLink = new ReceiverLink(_session, "consumer-link", address.Path);
             _receiverLink.Start(10, OnMessage);
         }
@@ -129,16 +125,11 @@ namespace CloudNative.CloudEvents.Endpoints
                     formatter = _jsonFormatter;
                 }
                 var cloudEvent = message.ToCloudEvent(formatter);
-                var data = cloudEvent.Data;
-                if (_deserializeCloudEventData != null)
-                {
-                    data = _deserializeCloudEventData(cloudEvent);
-                }
-                DeliverEvent(cloudEvent, data);
+                DeliverEvent(cloudEvent);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ERROR_LOG_TEMPLATE, "Error processing message: " + ex.Message);
+                Logger.LogError(ERROR_LOG_TEMPLATE, "Error processing message: " + ex.Message);
             }
         }
 
@@ -147,7 +138,7 @@ namespace CloudNative.CloudEvents.Endpoints
         /// </summary>
         public override async Task StopAsync()
         {
-            _logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Stopping AMQP consumer endpoint");
+            Logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Stopping AMQP consumer endpoint");
             if(_receiverLink != null)
                 await _receiverLink.CloseAsync();
             if (_session != null)

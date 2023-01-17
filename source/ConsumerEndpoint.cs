@@ -9,26 +9,16 @@ namespace CloudNative.CloudEvents.Endpoints
     /// <summary>
     /// Base class for consumer endpoints.
     /// </summary>
-    abstract class ConsumerEndpoint
+    public abstract class ConsumerEndpoint
     {
-        protected Dictionary<Type, Action<CloudEvent, object?>> EventHandlers { get; set; }
+        public event Func<CloudEvent, ILogger, Task>? DispatchEventAsync;
 
         /// <summary>
         /// Creates a new consumer endpoint.
         /// </summary
-        public ConsumerEndpoint()
+        public ConsumerEndpoint(ILogger logger)
         {
-            EventHandlers = new Dictionary<Type, Action<CloudEvent, object?>>();
-        }
-
-        /// <summary>
-        /// Registers an event handler for the specified type of event.
-        /// </summary>
-        /// <typeparam name="T">The type of event to handle.</typeparam>
-        /// <param name="handler">The event handler.</param>    
-        public void RegisterEventHandler<T>(Action<CloudEvent, T?> handler) where T : class
-        {
-            EventHandlers[typeof(T)] = (CloudEvent e, object? d) => handler(e, d as T);
+            Logger = logger;
         }
 
         /// <summary>
@@ -46,18 +36,20 @@ namespace CloudNative.CloudEvents.Endpoints
         /// <param name="cloudEvent">The event to deliver.</param>
         /// <param name="data">The data associated with the event.</param>
 
-        protected void DeliverEvent(CloudEvent cloudEvent, object? data)
+        protected void DeliverEvent(CloudEvent cloudEvent)
         {
-            Type type = (data != null) ? data.GetType() : typeof(object);
-            if (EventHandlers.TryGetValue(type, out var handler))
+            
+            if ( DispatchEventAsync != null )
             {
-                handler(cloudEvent, data);
+                DispatchEventAsync.Invoke(cloudEvent, Logger);
             }
         }
 
-        public delegate ConsumerEndpoint ConsumerEndpointFactoryHandler(IEndpointCredential credential, Protocol protocol, Dictionary<string, string> options, List<Uri> endpoints);
+        public delegate ConsumerEndpoint ConsumerEndpointFactoryHandler(ILogger logger, IEndpointCredential credential, Protocol protocol, Dictionary<string, string> options, List<Uri> endpoints);
         private static ConsumerEndpointFactoryHandler? _ConsumerEndpointFactoryHook;
-        
+
+        public ILogger Logger { get; }
+
         /// <summary>
         /// Hook to allow a custom consumer endpoint to be created.
         /// </summary>
@@ -93,9 +85,9 @@ namespace CloudNative.CloudEvents.Endpoints
         /// <param name="options">The options to use when creating the endpoint.</param>
         /// <param name="endpoints">The endpoints to use when creating the endpoint.</param>
         /// <param name="deserializeCloudEventData">The function to use to deserialize the event data.</param>
-        public static ConsumerEndpoint Create(ILogger logger, IEndpointCredential credential, Protocol protocol, Dictionary<string, string> options, List<Uri> endpoints, Func<CloudEvent, object>? deserializeCloudEventData = null)
+        public static ConsumerEndpoint Create(ILogger logger, IEndpointCredential credential, Protocol protocol, Dictionary<string, string> options, List<Uri> endpoints)
         {
-            ConsumerEndpoint? ep = _ConsumerEndpointFactoryHook?.Invoke(credential, protocol, options, endpoints);
+            ConsumerEndpoint? ep = _ConsumerEndpointFactoryHook?.Invoke(logger, credential, protocol, options, endpoints);
             if (ep != null)
             {
                 return ep;
@@ -104,9 +96,9 @@ namespace CloudNative.CloudEvents.Endpoints
             switch (protocol)
             {
                 case Protocol.Amqp:
-                    return new AmqpConsumerEndpoint(logger, credential, options, endpoints, deserializeCloudEventData);
+                    return new AmqpConsumerEndpoint(logger, credential, options, endpoints);
                 case Protocol.Mqtt:
-                    return new MqttConsumerEndpoint(logger, credential, options, endpoints, deserializeCloudEventData);
+                    return new MqttConsumerEndpoint(logger, credential, options, endpoints);
                 default:
                     throw new NotSupportedException($"Protocol '{protocol}' is not supported.");
             }
