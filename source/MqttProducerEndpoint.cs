@@ -8,6 +8,9 @@ using MQTTnet.Client.Options;
 
 namespace CloudNative.CloudEvents.Endpoints
 {
+    /// <summary>
+    /// A producer endpoint that sends CloudEvents to an MQTT broker.
+    /// </summary>
     class MqttProducerEndpoint : ProducerEndpoint
     {
         private readonly ILogger _logger;
@@ -16,6 +19,14 @@ namespace CloudNative.CloudEvents.Endpoints
         private Dictionary<Uri, IMqttClient> endpointConnections = new();
         private string _topic;
         private int _qos;
+
+        /// <summary>
+        /// Creates a new MQTT producer endpoint.
+        /// </summary>
+        /// <param name="logger">The logger to use when sending messages.</param>
+        /// <param name="credential">The credential to use when sending messages.</param>
+        /// <param name="options">The options to use when sending messages.</param>
+        /// <param name="endpoints">The endpoints to use when sending messages.</param>
 
         public MqttProducerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints)
         {
@@ -35,6 +46,12 @@ namespace CloudNative.CloudEvents.Endpoints
             this._endpoints = endpoints;
         }
 
+        /// <summary>
+        /// Sends a CloudEvent to the endpoint.
+        /// </summary>
+        /// <param name="cloudEvent">The CloudEvent to send.</param>
+        /// <param name="contentMode">The content mode to use when sending the CloudEvent.</param>
+        /// <param name="formatter">The formatter to use when sending the CloudEvent.</param>
         public override async Task SendAsync(CloudEvent cloudEvent, ContentMode contentMode, CloudEventFormatter formatter)
         {
             _logger.LogInformation("Sending message to endpoints");
@@ -66,13 +83,18 @@ namespace CloudNative.CloudEvents.Endpoints
         }
 
 
+        /// <summary>
+        /// Gets the connection to the endpoint.
+        /// </summary>
+        /// <param name="endpoint">The endpoint to connect to.</param>
+        /// <returns>The connection to the endpoint.</returns>
         private async Task<IMqttClient> GetEndpointConnectionAsync(Uri endpoint)
         {
             if (endpointConnections.TryGetValue(endpoint, out var connection))
             {
                 return connection;
             }
-
+    
             var mqttClient = new MqttFactory().CreateMqttClient();
             var options = new MqttClientOptionsBuilder()
                .WithClientId(Guid.NewGuid().ToString())

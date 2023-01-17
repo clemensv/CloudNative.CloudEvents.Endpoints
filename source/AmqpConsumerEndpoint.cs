@@ -7,6 +7,9 @@ using CloudNative.CloudEvents.Amqp;
 
 namespace CloudNative.CloudEvents.Endpoints
 {
+    /// <summary>
+    /// A consumer endpoint that receives CloudEvents from an AMQP broker.
+    /// </summary>
     class AmqpConsumerEndpoint : ConsumerEndpoint
     {
         private const string ERROR_LOG_TEMPLATE = "Error in AMQPConsumerEndpoint: {0}";
@@ -24,6 +27,14 @@ namespace CloudNative.CloudEvents.Endpoints
         private IEndpointCredential _credential;
         private List<Uri> _endpoints;
 
+        /// <summary>
+        /// Creates a new AMQP consumer endpoint.
+        /// </summary>
+        /// <param name="logger">The logger to use for this endpoint.</param>
+        /// <param name="credential">The credential to use for this endpoint.</param>
+        /// <param name="options">The options to use for this endpoint.</param>
+        /// <param name="endpoints">The endpoints to use for this endpoint.</param>
+        /// <param name="deserializeCloudEventData">The function to use to deserialize the CloudEvent data.</param>
         public AmqpConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints, Func<CloudEvent, object>? deserializeCloudEventData)
         {
             _logger = logger;
@@ -36,6 +47,10 @@ namespace CloudNative.CloudEvents.Endpoints
             }
         }
 
+        /// <summary>
+        /// Starts the endpoint.
+        /// </summary>
+        /// <returns>A task that completes when the endpoint has started.</returns>
         public override async Task StartAsync()
         {
             Uri endpoint = _endpoints.First();
@@ -90,6 +105,11 @@ namespace CloudNative.CloudEvents.Endpoints
             _receiverLink.Start(10, OnMessage);
         }
 
+        /// <summary>
+        /// Called when a message is received.
+        /// </summary>
+        /// <param name="receiver">The receiver link.</param>
+        /// <param name="message">The message.</param>
         private void OnMessage(IReceiverLink receiver, global::Amqp.Message message)
         {
             try
@@ -121,6 +141,10 @@ namespace CloudNative.CloudEvents.Endpoints
                 _logger.LogError(ERROR_LOG_TEMPLATE, "Error processing message: " + ex.Message);
             }
         }
+
+        /// <summary>
+        /// Stops the endpoint.
+        /// </summary>
         public override async Task StopAsync()
         {
             _logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Stopping AMQP consumer endpoint");

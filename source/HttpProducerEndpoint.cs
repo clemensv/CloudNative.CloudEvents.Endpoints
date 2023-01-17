@@ -5,6 +5,10 @@ using Microsoft.Extensions.Logging;
 
 namespace CloudNative.CloudEvents.Endpoints
 {
+
+    /// <summary>
+    /// Producer endpoint for HTTP.
+    /// </summary>
     class HttpProducerEndpoint : ProducerEndpoint
     {
         private HttpClient _httpClient;
@@ -12,6 +16,13 @@ namespace CloudNative.CloudEvents.Endpoints
         private readonly IEndpointCredential _credential;
         private List<Uri> _endpoints;
 
+        /// <summary>
+        /// Creates a new producer endpoint for HTTP.
+        /// </summary>
+        /// <param name="logger">The logger to use when creating the endpoint.</param>
+        /// <param name="credential">The credential to use when creating the endpoint.</param>
+        /// <param name="options">The options to use when creating the endpoint.</param>
+        /// <param name="endpoints">The endpoints to use when creating the endpoint.</param>
         public HttpProducerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints)
         {
             this._logger = logger;
@@ -27,6 +38,12 @@ namespace CloudNative.CloudEvents.Endpoints
             }
         }
 
+        /// <summary>
+        /// Sends a CloudEvent to the endpoint.
+        /// </summary>
+        /// <param name="cloudEvent">The CloudEvent to send.</param>
+        /// <param name="contentMode">The content mode to use when sending the CloudEvent.</param>
+        /// <param name="formatter">The formatter to use when sending the CloudEvent.</param>
         public override async Task SendAsync(CloudEvent cloudEvent, ContentMode contentMode, CloudEventFormatter formatter)
         {
             try

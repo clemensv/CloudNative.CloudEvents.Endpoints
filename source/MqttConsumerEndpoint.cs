@@ -11,6 +11,9 @@ using MQTTnet.Protocol;
 
 namespace CloudNative.CloudEvents.Endpoints
 {
+    /// <summary>
+    /// A consumer endpoint that receives CloudEvents from an MQTT broker.
+    /// </summary>
     class MqttConsumerEndpoint : ConsumerEndpoint
     {
         private const string ERROR_LOG_TEMPLATE = "Error in MQTTConsumerEndpoint: {0}";
@@ -28,6 +31,9 @@ namespace CloudNative.CloudEvents.Endpoints
         private byte _qos;
         private List<Uri> _endpoints;
 
+        /// <summary>
+        /// Creates a new MQTT consumer endpoint.
+        /// </summary>
         public MqttConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints, Func<CloudEvent, object>? deserializeCloudEventData)
         {
             _logger = logger;
@@ -46,7 +52,10 @@ namespace CloudNative.CloudEvents.Endpoints
             }
             if (_topic == null) throw new ArgumentException("topic is required");
         }
-
+        
+        /// <summary>
+        /// Starts the endpoint.
+        /// </summary>
         public override async Task StartAsync()
         {
             Uri endpoint = _endpoints.First();
@@ -73,12 +82,19 @@ namespace CloudNative.CloudEvents.Endpoints
             _logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Started MQTT consumer endpoint");
         }
 
+        /// <summary>
+        /// Stops the endpoint.
+        /// </summary>
         public override async Task StopAsync()
         {
             await _client.DisconnectAsync();
             _logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Stopped MQTT consumer endpoint");
         }
         
+        /// <summary>
+        /// Handles a received message.
+        /// </summary>
+        /// <param name="args">The message arguments.</param>
         private void OnMessageReceived(MqttApplicationMessageReceivedEventArgs args)
         {
             try

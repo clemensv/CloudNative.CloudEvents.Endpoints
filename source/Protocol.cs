@@ -2,6 +2,9 @@
 
 namespace CloudNative.CloudEvents.Endpoints
 {
+    /// <summary>
+    /// The protocol used to send a CloudEvent.
+    /// </summary>
     public enum Protocol { 
         Http, 
         Amqp, 

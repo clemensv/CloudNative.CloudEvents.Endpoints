@@ -7,6 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace CloudNative.CloudEvents.Endpoints
 {
+    /// <summary>
+    /// A producer endpoint that sends CloudEvents to an AMQP endpoint.
+    /// </summary>
     class AmqpProducerEndpoint : ProducerEndpoint
     {
         private readonly ILogger _logger;
@@ -15,6 +18,13 @@ namespace CloudNative.CloudEvents.Endpoints
         private Dictionary<Uri, Tuple<Connection, Session, SenderLink>> endpointConnections = new();
         private string? _node;
 
+        /// <summary>
+        /// Creates a new AMQP producer endpoint.
+        /// </summary>
+        /// <param name="logger">The logger to use when sending messages.</param>
+        /// <param name="credential">The credential to use when sending messages.</param>
+        /// <param name="options">The options to use when sending messages.</param>
+        /// <param name="endpoints">The endpoints to use when sending messages.</param>
         public AmqpProducerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints)
         {
             this._logger = logger;
@@ -26,6 +36,12 @@ namespace CloudNative.CloudEvents.Endpoints
             }
         }
 
+        /// <summary>
+        /// Sends a CloudEvent to the endpoint.
+        /// </summary>
+        /// <param name="cloudEvent">The CloudEvent to send.</param>
+        /// <param name="contentMode">The content mode to use when sending the CloudEvent.</param>
+        /// <param name="formatter">The formatter to use when sending the CloudEvent.</param>
         public override async Task SendAsync(CloudEvent cloudEvent, ContentMode contentMode, CloudEventFormatter formatter)
         {
             foreach (var endpoint in _endpoints)
@@ -45,6 +61,11 @@ namespace CloudNative.CloudEvents.Endpoints
             }
         }
 
+        /// <summary>
+        /// Gets the connection to the endpoint.
+        /// </summary>
+        /// <param name="endpoint">The endpoint to connect to.</param>
+        /// <returns>The connection to the endpoint.</returns>
         private async Task<Tuple<Connection, Session, SenderLink>> GetEndpointConnectionAsync(Uri endpoint)
         {
             try
