@@ -27,6 +27,7 @@ jobs:
       run: dotnet publish source/CloudNative.CloudEvents.Endpoints.csproj --configuration Release --output bin/Release
     
     - name: Publish   
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: actions/upload-artifact@v2
       with:
         name: Release
