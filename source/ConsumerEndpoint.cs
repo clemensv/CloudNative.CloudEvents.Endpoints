@@ -11,14 +11,14 @@ namespace CloudNative.CloudEvents.Endpoints
     /// </summary>
     abstract class ConsumerEndpoint
     {
-        protected Dictionary<Type, Action<CloudEvent, object>> EventHandlers { get; set; }
+        protected Dictionary<Type, Action<CloudEvent, object?>> EventHandlers { get; set; }
 
         /// <summary>
         /// Creates a new consumer endpoint.
         /// </summary
         public ConsumerEndpoint()
         {
-            EventHandlers = new Dictionary<Type, Action<CloudEvent, object>>();
+            EventHandlers = new Dictionary<Type, Action<CloudEvent, object?>>();
         }
 
         /// <summary>
@@ -26,9 +26,9 @@ namespace CloudNative.CloudEvents.Endpoints
         /// </summary>
         /// <typeparam name="T">The type of event to handle.</typeparam>
         /// <param name="handler">The event handler.</param>    
-        public void RegisterEventHandler<T>(Action<CloudEvent, T> handler)
+        public void RegisterEventHandler<T>(Action<CloudEvent, T?> handler) where T : class
         {
-            EventHandlers[typeof(T)] = (e, d) => handler(e, (T)d);
+            EventHandlers[typeof(T)] = (CloudEvent e, object? d) => handler(e, d as T);
         }
 
         /// <summary>
@@ -48,7 +48,8 @@ namespace CloudNative.CloudEvents.Endpoints
 
         protected void DeliverEvent(CloudEvent cloudEvent, object? data)
         {
-            if (EventHandlers.TryGetValue(data?.GetType(), out var handler))
+            Type type = (data != null) ? data.GetType() : typeof(object);
+            if (EventHandlers.TryGetValue(type, out var handler))
             {
                 handler(cloudEvent, data);
             }
