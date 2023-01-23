@@ -44,7 +44,7 @@ namespace CloudNative.CloudEvents.Endpoints
                 DispatchEventAsync.Invoke(cloudEvent, Logger);
             }
         }
-
+        
         public delegate ConsumerEndpoint ConsumerEndpointFactoryHandler(ILogger logger, IEndpointCredential credential, Protocol protocol, Dictionary<string, string> options, List<Uri> endpoints);
         private static ConsumerEndpointFactoryHandler? _ConsumerEndpointFactoryHook;
 
