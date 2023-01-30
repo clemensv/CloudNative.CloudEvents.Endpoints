@@ -1,4 +1,4 @@
-﻿namespace CloudNative.CloudEvents.Endpoints
+﻿namespace CloudNative.CloudEvents.Experimental.Endpoints
 {
 
     /// <summary>

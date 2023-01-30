@@ -5,12 +5,12 @@ using Amqp;
 using Amqp.Sasl;
 using Microsoft.Extensions.Logging;
 
-namespace CloudNative.CloudEvents.Endpoints
+namespace CloudNative.CloudEvents.Experimental.Endpoints
 {
     /// <summary>
     /// A producer endpoint that sends CloudEvents to an AMQP endpoint.
     /// </summary>
-    class AmqpProducerEndpoint : ProducerEndpoint
+    public class AmqpProducerEndpoint : ProducerEndpoint
     {
         private readonly ILogger _logger;
         private readonly IEndpointCredential _credential;
@@ -18,6 +18,8 @@ namespace CloudNative.CloudEvents.Endpoints
         private Dictionary<Uri, Tuple<Connection, Session, SenderLink>> endpointConnections = new();
         private string? _node;
 
+
+        
         /// <summary>
         /// Creates a new AMQP producer endpoint.
         /// </summary>
@@ -51,6 +53,25 @@ namespace CloudNative.CloudEvents.Endpoints
                 try
                 {
                     await sender.SendAsync(cloudEvent.ToAmqpMessage(contentMode, formatter));
+                }
+                catch (AmqpException ex)
+                {
+                    _logger.LogError("Error sending message to endpoint " + endpoint + ": " + ex.Message);
+                    _endpoints.Remove(endpoint);
+                    throw;
+                }
+            }
+        }
+
+        public async Task SendAsync(Message amqpMessage)
+        {
+            foreach (var endpoint in _endpoints)
+            {
+                var connectionTuple = await GetEndpointConnectionAsync(endpoint);
+                var sender = connectionTuple.Item3;
+                try
+                {
+                    await sender.SendAsync(amqpMessage);
                 }
                 catch (AmqpException ex)
                 {
@@ -114,5 +135,21 @@ namespace CloudNative.CloudEvents.Endpoints
                 throw;
             }
         }
+        internal static void Register()
+        {
+            AddProducerEndpointFactoryHandler(CreateAmqp);
+        }
+
+        private static ProducerEndpoint CreateAmqp(ILogger logger, IEndpointCredential credential, string protocol, Dictionary<string, string> options, List<Uri> endpoints)
+        {
+            switch (protocol)
+            {
+                case "amqp":
+                    return new AmqpProducerEndpoint(logger, credential, options, endpoints);
+                default:
+                    throw new NotSupportedException($"Protocol '{protocol}' is not supported.");
+            }
+        }
+
     }
 }

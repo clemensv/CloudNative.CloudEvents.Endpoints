@@ -2,7 +2,7 @@
 
 using Microsoft.Extensions.Logging;
 
-namespace CloudNative.CloudEvents.Endpoints
+namespace CloudNative.CloudEvents.Experimental.Endpoints
 {
 
     /// <summary>
@@ -13,35 +13,28 @@ namespace CloudNative.CloudEvents.Endpoints
         /// <summary>
         /// Delegate for a hook to allow a custom producer endpoint to be created.
         /// </summary>
-        public delegate ProducerEndpoint ProducerEndpointFactoryHandler(IEndpointCredential credential, Protocol protocol, Dictionary<string, string> options, List<Uri> endpoints);
-        private static ProducerEndpointFactoryHandler? _producerEndpointFactoryHook;
-        
-        /// <summary>
-        /// Hook to allow a custom producer endpoint to be created.
-        /// </summary>
-        /// <remarks>
-        /// This hook is intended to allow a custom producer endpoint to be created. It is not intended to be used to modify the behaviour of an existing endpoint.
-        /// </remarks>
-        public event ProducerEndpointFactoryHandler ProducerEndpointFactoryHook
-        {
-            add
-            {
-                if (_producerEndpointFactoryHook == null)
-                {
-                    _producerEndpointFactoryHook = value;
-                }
-                else
-                {
-                    throw new InvalidOperationException("ProducerEndpointFactoryHook already set");
+        public delegate ProducerEndpoint? ProducerEndpointFactoryHandler(ILogger logger, IEndpointCredential credential, string protocol, Dictionary<string, string> options, List<Uri> endpoints);
+        private static List<ProducerEndpointFactoryHandler> _producerEndpointFactoryHooks = new List<ProducerEndpointFactoryHandler>();
 
-                }
-            }
-            remove
-            {
-                _producerEndpointFactoryHook = null;
-            }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="handler"></param>
+        public static void AddProducerEndpointFactoryHandler(ProducerEndpointFactoryHandler handler)
+        {
+            _producerEndpointFactoryHooks.Add(handler);
         }
-                
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="handler"></param>
+        public static void RemoveProducerEndpointFactoryHandler(ProducerEndpointFactoryHandler handler)
+        {
+            _producerEndpointFactoryHooks.Remove(handler);
+        }
+
+
         /// <summary>
         /// Creates a producer endpoint for the specified protocol and with the specified options and endpoints.
         /// </summary>
@@ -50,22 +43,21 @@ namespace CloudNative.CloudEvents.Endpoints
         /// <param name="protocol">The protocol to use when creating the endpoint.</param>
         /// <param name="options">The options to use when creating the endpoint.</param>
         /// <param name="endpoints">The endpoints to use when creating the endpoint.</param>
-        public static ProducerEndpoint Create(ILogger logger, IEndpointCredential credential, Protocol protocol, Dictionary<string, string> options, List<Uri> endpoints)
+        public static ProducerEndpoint Create(ILogger logger, IEndpointCredential credential, string protocol, Dictionary<string, string> options, List<Uri> endpoints)
         {
-            ProducerEndpoint? ep = _producerEndpointFactoryHook?.Invoke(credential, protocol, options, endpoints);
-            if (ep != null)
+            foreach (var handler in _producerEndpointFactoryHooks)
             {
-                return ep;
+                ProducerEndpoint? ep = handler.Invoke(logger, credential, protocol, options, endpoints);
+                if (ep != null)
+                {
+                    return ep;
+                }
             }
             
             switch (protocol)
             {
-                case Protocol.Http:
+                case HttpProtocol.Name:
                     return new HttpProducerEndpoint(logger, credential, options, endpoints);
-                case Protocol.Amqp:
-                    return new AmqpProducerEndpoint(logger, credential, options, endpoints);
-                case Protocol.Mqtt:
-                    return new MqttProducerEndpoint(logger, credential, options, endpoints);
                 default:
                     throw new NotSupportedException($"Protocol '{protocol}' is not supported.");
             }

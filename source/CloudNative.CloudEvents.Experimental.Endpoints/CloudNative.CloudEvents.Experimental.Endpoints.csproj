@@ -1,11 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
+	  <LangVersion>10.0</LangVersion>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-	  <Version>1.2.0</Version>
+	  <Version>1.2.1</Version>
+	  <PackageOutputPath>..\packages</PackageOutputPath>
   </PropertyGroup>
 	
 
@@ -18,7 +20,7 @@
 		<PackageReference Include="CloudNative.CloudEvents.Avro" Version="2.5.1" />
 		<PackageReference Include="AMQPNetLite" Version="2.4.5" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
-		<PackageReference Include="MQTTnet" Version="3.0.15.0" />
+		<PackageReference Include="MQTTnet" Version="3.0.15" />
 	</ItemGroup>
 
 </Project>

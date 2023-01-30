@@ -3,7 +3,7 @@
 using CloudNative.CloudEvents.Http;
 using Microsoft.Extensions.Logging;
 
-namespace CloudNative.CloudEvents.Endpoints
+namespace CloudNative.CloudEvents.Experimental.Endpoints
 {
 
     /// <summary>

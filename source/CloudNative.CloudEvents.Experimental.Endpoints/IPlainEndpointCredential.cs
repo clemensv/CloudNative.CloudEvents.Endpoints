@@ -1,4 +1,4 @@
-﻿namespace CloudNative.CloudEvents.Endpoints
+﻿namespace CloudNative.CloudEvents.Experimental.Endpoints
 {
     /// <summary>
     /// A credential consisting of a client ID and client secret.

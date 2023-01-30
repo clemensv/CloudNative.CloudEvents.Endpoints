@@ -5,13 +5,15 @@ using Microsoft.Extensions.Logging;
 using CloudNative.CloudEvents.Protobuf;
 using CloudNative.CloudEvents.Amqp;
 
-namespace CloudNative.CloudEvents.Endpoints
+namespace CloudNative.CloudEvents.Experimental.Endpoints
 {
     /// <summary>
     /// A consumer endpoint that receives CloudEvents from an AMQP broker.
     /// </summary>
-    class AmqpConsumerEndpoint : ConsumerEndpoint
+    public class AmqpConsumerEndpoint : ConsumerEndpoint
     {
+        public event Func<Message, ILogger, Task>? DispatchMessageAsync;
+        
         private const string ERROR_LOG_TEMPLATE = "Error in AMQPConsumerEndpoint: {0}";
         private const string VERBOSE_LOG_TEMPLATE = "AMQPConsumerEndpoint: {0}";
 
@@ -33,11 +35,11 @@ namespace CloudNative.CloudEvents.Endpoints
         /// <param name="options">The options to use for this endpoint.</param>
         /// <param name="endpoints">The endpoints to use for this endpoint.</param>
         /// <param name="deserializeCloudEventData">The function to use to deserialize the CloudEvent data.</param>
-        public AmqpConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints):base(logger)
+        internal AmqpConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints) : base(logger)
         {
             _credential = credential;
             _endpoints = endpoints;
-            if ( options.TryGetValue("node", out var node) )
+            if (options.TryGetValue("node", out var node))
             {
                 _node = node;
             }
@@ -50,8 +52,8 @@ namespace CloudNative.CloudEvents.Endpoints
         public override async Task StartAsync()
         {
             Uri endpoint = _endpoints.First();
-            var factory = new ConnectionFactory(); 
-            
+            var factory = new ConnectionFactory();
+
             Address address = new Address(
                 endpoint.Host,
                 endpoint.Port == -1 ? endpoint.Scheme == "amqps" ? 5671 : 5672 : endpoint.Port,
@@ -74,7 +76,7 @@ namespace CloudNative.CloudEvents.Endpoints
                 Logger.LogError(ERROR_LOG_TEMPLATE, "Error creating connection to endpoint " + endpoint + ": " + ex.Message);
                 throw;
             }
-            
+
             _session = new Session(_connection);
             if (_credential is ITokenEndpointCredential)
             {
@@ -101,6 +103,37 @@ namespace CloudNative.CloudEvents.Endpoints
             _receiverLink.Start(10, OnMessage);
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            if (_receiverLink != null)
+            {
+                _receiverLink.Close();
+                _receiverLink = null;
+            }
+            if (_session != null)
+            {
+                _session.Close();
+                _session = null;
+            }
+            if (_connection != null)
+            {
+                _connection.Close();
+                _connection = null;
+            }
+        }
+
+        protected override void Deliver<T>(T message)
+        {
+            if (message is Message && DispatchMessageAsync != null)
+            {
+                DispatchMessageAsync.Invoke((Message)(object)message, Logger);
+            }
+            else
+            {
+                base.Deliver(message);
+            }
+        }
+
         /// <summary>
         /// Called when a message is received.
         /// </summary>
@@ -110,22 +143,29 @@ namespace CloudNative.CloudEvents.Endpoints
         {
             try
             {
-                CloudEventFormatter formatter;
-                var contentType = message.Properties.ContentType?.ToString().Split(";")[0];
-                if (contentType != null && contentType.EndsWith("+proto"))
+                if (message.IsCloudEvent())
                 {
-                    formatter = _protoFormatter;
-                }
-                else if (contentType != null && contentType.EndsWith("+avro"))
-                {
-                    formatter = _avroFormatter;
+                    CloudEventFormatter formatter;
+                    var contentType = message.Properties.ContentType?.ToString().Split(';')[0];
+                    if (contentType != null && contentType.EndsWith("+proto"))
+                    {
+                        formatter = _protoFormatter;
+                    }
+                    else if (contentType != null && contentType.EndsWith("+avro"))
+                    {
+                        formatter = _avroFormatter;
+                    }
+                    else
+                    {
+                        formatter = _jsonFormatter;
+                    }
+                    var cloudEvent = message.ToCloudEvent(formatter);
+                    Deliver(cloudEvent);
                 }
                 else
                 {
-                    formatter = _jsonFormatter;
+                    Deliver(message);
                 }
-                var cloudEvent = message.ToCloudEvent(formatter);
-                DeliverEvent(cloudEvent);
             }
             catch (Exception ex)
             {
@@ -139,12 +179,28 @@ namespace CloudNative.CloudEvents.Endpoints
         public override async Task StopAsync()
         {
             Logger.LogInformation(VERBOSE_LOG_TEMPLATE, "Stopping AMQP consumer endpoint");
-            if(_receiverLink != null)
+            if (_receiverLink != null)
                 await _receiverLink.CloseAsync();
             if (_session != null)
                 await _session.CloseAsync();
-            if ( _connection != null)
+            if (_connection != null)
                 await _connection.CloseAsync();
+        }
+
+
+        internal static void Register()
+        {
+            AddConsumerEndpointFactoryHook(CreateAmqp);
+        }
+
+        private static ConsumerEndpoint? CreateAmqp(ILogger logger, IEndpointCredential credential, string protocol, Dictionary<string, string> options, List<Uri> endpoints)
+        {
+            switch (protocol)
+            {
+                case "amqp":
+                    return new AmqpConsumerEndpoint(logger, credential, options, endpoints);
+            }
+            return null;
         }
     }
 

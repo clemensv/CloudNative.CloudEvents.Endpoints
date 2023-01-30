@@ -1,17 +1,19 @@
 ﻿// (c) Cloud Native Computing Foundation. See LICENSE for details
 
 using CloudNative.CloudEvents.Mqtt;
+using CloudNative.CloudEvents.V1;
 using Microsoft.Extensions.Logging;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Client.Options;
+using System.Runtime.Serialization;
 
-namespace CloudNative.CloudEvents.Endpoints
+namespace CloudNative.CloudEvents.Experimental.Endpoints
 {
     /// <summary>
     /// A producer endpoint that sends CloudEvents to an MQTT broker.
     /// </summary>
-    class MqttProducerEndpoint : ProducerEndpoint
+    public class MqttProducerEndpoint : ProducerEndpoint
     {
         private readonly ILogger _logger;
         private readonly IEndpointCredential _credential;
@@ -82,6 +84,34 @@ namespace CloudNative.CloudEvents.Endpoints
             _logger.LogInformation("Message sent to all endpoints");
         }
 
+        public async Task SendAsync(MqttApplicationMessage message)
+        {
+            _logger.LogInformation("Sending message to endpoints");
+            try
+            {
+                foreach (var endpoint in _endpoints)
+                {
+                    var connection = await GetEndpointConnectionAsync(endpoint);
+                    message.Topic = _topic;
+                    message.QualityOfServiceLevel = (MQTTnet.Protocol.MqttQualityOfServiceLevel)_qos;
+                    try
+                    {
+                        await connection.PublishAsync(message);
+                    }
+                    catch
+                    {
+                        _logger.LogError("Error publishing message to endpoint {endpoint}. Removing endpoint from connections", endpoint);
+                        endpointConnections.Remove(endpoint);
+                        throw;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending message to endpoints");
+            }
+            _logger.LogInformation("Message sent to all endpoints");
+        }
 
         /// <summary>
         /// Gets the connection to the endpoint.
@@ -111,6 +141,22 @@ namespace CloudNative.CloudEvents.Endpoints
             await mqttClient.ConnectAsync(options.Build(), CancellationToken.None);
             endpointConnections.Add(endpoint, mqttClient);
             return mqttClient;             
+        }
+
+        internal static void Register()
+        {
+            AddProducerEndpointFactoryHandler(CreateMqtt);
+        }
+
+        private static ProducerEndpoint CreateMqtt(ILogger logger, IEndpointCredential credential, string protocol, Dictionary<string, string> options, List<Uri> endpoints)
+        {
+            switch (protocol)
+            {
+                case "mqtt":
+                    return new MqttProducerEndpoint(logger, credential, options, endpoints);
+                default:
+                    throw new NotSupportedException($"Protocol '{protocol}' is not supported.");
+            }
         }
     }
 }

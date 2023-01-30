@@ -6,16 +6,17 @@ using Microsoft.Extensions.Logging;
 using CloudNative.CloudEvents.SystemTextJson;
 using CloudNative.CloudEvents.Protobuf;
 using CloudNative.CloudEvents.Mqtt;
-
 using MQTTnet.Protocol;
 
-namespace CloudNative.CloudEvents.Endpoints
+namespace CloudNative.CloudEvents.Experimental.Endpoints
 {
     /// <summary>
     /// A consumer endpoint that receives CloudEvents from an MQTT broker.
     /// </summary>
-    class MqttConsumerEndpoint : ConsumerEndpoint
+    public class MqttConsumerEndpoint : ConsumerEndpoint
     {
+        public event Func<MqttApplicationMessage, ILogger, Task>? DispatchApplicationMessageAsync;
+        
         private const string ERROR_LOG_TEMPLATE = "Error in MQTTConsumerEndpoint: {0}";
         private const string VERBOSE_LOG_TEMPLATE = "MQTTConsumerEndpoint: {0}";
 
@@ -32,7 +33,7 @@ namespace CloudNative.CloudEvents.Endpoints
         /// <summary>
         /// Creates a new MQTT consumer endpoint.
         /// </summary>
-        public MqttConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints):base(logger)
+        internal MqttConsumerEndpoint(ILogger logger, IEndpointCredential credential, Dictionary<string, string> options, List<Uri> endpoints):base(logger)
         {
             _credential = credential;
             _endpoints = endpoints;
@@ -95,13 +96,78 @@ namespace CloudNative.CloudEvents.Endpoints
         {
             try
             {
-                var cloudEvent = args.ApplicationMessage.ToCloudEvent(_jsonFormatter);
-                DeliverEvent(cloudEvent);
+                string contentType = args.ApplicationMessage.ContentType;
+                
+                if (( contentType?.StartsWith("application/cloudevents") ?? true) ||
+                    ( args.ApplicationMessage.UserProperties.Any(p => p.Name == "specversion") &&
+                      args.ApplicationMessage.UserProperties.Any(p => p.Name == "type")))
+                {
+                    CloudEventFormatter formatter = _jsonFormatter;
+                    if (contentType != null)
+                    {
+                        contentType = contentType.ToString().Split(';')[0];
+                        if (contentType != null && contentType.EndsWith("+proto"))
+                        {
+                            formatter = _protoFormatter;
+                        }
+                        else if (contentType != null && contentType.EndsWith("+avro"))
+                        {
+                            formatter = _avroFormatter;
+                        }
+                        else
+                        {
+                            formatter = _jsonFormatter;
+                        }
+                    }
+                    var cloudEvent = args.ApplicationMessage.ToCloudEvent(formatter);
+                    Deliver(cloudEvent);
+                }
+                else
+                {
+                    Deliver(args.ApplicationMessage);
+                }
             }
             catch (Exception ex)
             {
                 Logger.LogError(ERROR_LOG_TEMPLATE, ex.Message);
             }
+        }
+
+        protected override void Deliver<T>(T message)
+        {
+            if ( message is MqttApplicationMessage)
+            {
+                DispatchApplicationMessageAsync?.Invoke((MqttApplicationMessage)(object)message, Logger);
+            }
+            else
+            {
+                base.Deliver(message);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (_client != null)
+            {
+                _client.Dispose();
+                _client = null;
+            }
+            base.Dispose(disposing);
+        }
+
+        internal static void Register()
+        {
+            AddConsumerEndpointFactoryHook(CreateMqtt);
+        }
+
+        private static ConsumerEndpoint? CreateMqtt(ILogger logger, IEndpointCredential credential, string protocol, Dictionary<string, string> options, List<Uri> endpoints)
+        {
+            switch (protocol)
+            {
+                case "mqtt":
+                    return new MqttConsumerEndpoint(logger, credential, options, endpoints);
+            }
+            return null;
         }
     }
 }
