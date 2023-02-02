@@ -22,11 +22,11 @@ jobs:
         dotnet-version: 6.0.100
 
     - name: Build assembly
-      run: dotnet build source/CloudNative.CloudEvents.Endpoints.csproj
+      run: dotnet build source/CloudNative.CloudEvents.Experimental.Endpoints.sln
 
     - name: Create binary release
       if: startsWith(github.ref, 'refs/tags/v')
-      run: dotnet publish source/CloudNative.CloudEvents.Endpoints.csproj --configuration Release --output bin/Release
+      run: dotnet publish source/CloudNative.CloudEvents.Experimental.Endpoints.sln --configuration Release --output bin/Release --framework net6.0
     
     - name: Publish   
       if: startsWith(github.ref, 'refs/tags/v')
