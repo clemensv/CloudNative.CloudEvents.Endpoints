@@ -56,6 +56,7 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
         /// <param name="formatter">The formatter to use when sending the CloudEvent.</param>
         public override async Task SendAsync(CloudEvent cloudEvent, ContentMode contentMode, CloudEventFormatter formatter)
         {
+            OnBeforeSend(cloudEvent);
             _logger.LogInformation("Sending message to endpoints");
             try
             {
@@ -86,6 +87,7 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
 
         public async Task SendAsync(MqttApplicationMessage message)
         {
+            
             _logger.LogInformation("Sending message to endpoints");
             try
             {

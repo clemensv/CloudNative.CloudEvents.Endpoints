@@ -12,7 +12,7 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
     public abstract class ConsumerEndpoint : IDisposable
     {
         public event Func<CloudEvent, ILogger, Task>? DispatchCloudEventAsync;
-
+        
         /// <summary>
         /// Creates a new consumer endpoint.
         /// </summary

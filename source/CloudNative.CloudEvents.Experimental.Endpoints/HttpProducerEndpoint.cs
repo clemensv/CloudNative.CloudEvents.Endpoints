@@ -46,6 +46,8 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
         /// <param name="formatter">The formatter to use when sending the CloudEvent.</param>
         public override async Task SendAsync(CloudEvent cloudEvent, ContentMode contentMode, CloudEventFormatter formatter)
         {
+            OnBeforeSend(cloudEvent);
+            
             try
             {
                 foreach (var endpoint in _endpoints)

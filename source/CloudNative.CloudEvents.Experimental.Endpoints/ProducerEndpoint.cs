@@ -10,6 +10,9 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
     /// </summary>
     abstract public class ProducerEndpoint
     {
+
+        public event EventHandler<CloudEvent>? BeforeSend;
+        
         /// <summary>
         /// Delegate for a hook to allow a custom producer endpoint to be created.
         /// </summary>
@@ -61,6 +64,11 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
                 default:
                     throw new NotSupportedException($"Protocol '{protocol}' is not supported.");
             }
+        }
+
+        protected void OnBeforeSend(CloudEvent cloudEvent)
+        {
+            BeforeSend?.Invoke(this, cloudEvent);
         }
 
         /// <summary>

@@ -46,6 +46,8 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
         /// <param name="formatter">The formatter to use when sending the CloudEvent.</param>
         public override async Task SendAsync(CloudEvent cloudEvent, ContentMode contentMode, CloudEventFormatter formatter)
         {
+            OnBeforeSend(cloudEvent);
+            
             foreach (var endpoint in _endpoints)
             {
                 var connectionTuple = await GetEndpointConnectionAsync(endpoint);
@@ -123,7 +125,7 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
                     await cbsSender.SendAsync(request);
                     await cbsSender.CloseAsync();
                 }
-                var sender = new SenderLink(session, "sender-link", endpoint.PathAndQuery);
+                var sender = new SenderLink(session, "sender-link", address.Path);
                 connectionTuple = new Tuple<Connection, Session, SenderLink>(connection, session, sender);
                 endpointConnections.Add(endpoint, connectionTuple);
                 return connectionTuple;

@@ -5,8 +5,7 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
     public static class MqttProtocol
     {
         public const string Name = "mqtt";
-
-        static MqttProtocol()
+        public static void Initialize()
         {
             MqttConsumerEndpoint.Register();
             MqttProducerEndpoint.Register();

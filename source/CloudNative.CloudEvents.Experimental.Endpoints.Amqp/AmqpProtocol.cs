@@ -9,7 +9,7 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
     {
         public const string Name = "amqp";
 
-        static AmqpProtocol()
+        public static void Initialize()
         {
             AmqpConsumerEndpoint.Register();
             AmqpProducerEndpoint.Register();

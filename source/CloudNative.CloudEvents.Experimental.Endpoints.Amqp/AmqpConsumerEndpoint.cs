@@ -39,7 +39,7 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
         {
             _credential = credential;
             _endpoints = endpoints;
-            if (options.TryGetValue("node", out var node))
+            if (options != null && options.TryGetValue("node", out var node))
             {
                 _node = node;
             }
@@ -160,11 +160,30 @@ namespace CloudNative.CloudEvents.Experimental.Endpoints
                         formatter = _jsonFormatter;
                     }
                     var cloudEvent = message.ToCloudEvent(formatter);
-                    Deliver(cloudEvent);
+                    try
+                    {
+
+                        Deliver(cloudEvent);
+                        receiver.Accept(message);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ERROR_LOG_TEMPLATE, "Error processing message: " + ex.Message);
+                        receiver.Release(message);
+                    }
                 }
                 else
                 {
-                    Deliver(message);
+                    try
+                    {
+                        Deliver(message);
+                        receiver.Accept(message);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ERROR_LOG_TEMPLATE, "Error processing message: " + ex.Message);
+                        receiver.Release(message);
+                    }
                 }
             }
             catch (Exception ex)
